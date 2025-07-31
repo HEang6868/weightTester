@@ -14,7 +14,7 @@ class WeightTester():
         #Define basic window parameters.
         self.app = "WeightPaintTester"
         self.title = "Weight Paint Tester"
-        self.winSize = (500, 550)
+        self.winSize = (500, 500)
         #Setup dictionary that will hold data for the tool.
         self.jointDict={}
         self.minFrameRange = mc.playbackOptions(q=True, minTime=True)
@@ -30,7 +30,7 @@ class WeightTester():
         #Set up the window's layouts and inputs.
         mainLayout = mc.formLayout(numberOfDivisions=100)
 
-        treeLayout = mc.frameLayout(parent=mainLayout, label="Objects to Test",
+        treeLayout = mc.frameLayout(parent=mainLayout, label="Joints",
                                     collapsable=False,
                                     )
         self.jointTree = mc.treeView(parent=treeLayout, 
@@ -45,23 +45,12 @@ class WeightTester():
                                        generalSpacing=15,
                                        margins=5,
                                        )
-        self.jntHierBtn = mc.button(label="Select Joint \nHierarchy", parent = controlLayout, command=self.select_joint_hierarchy)
-        self.addJntBtn = mc.button(label="Add Selected \nObjects", parent = controlLayout, command=( lambda tree: self.tree_add(self.jointTree, dictionary=self.jointDict) ) )
-        self.rmvJntBtn = mc.button(label="Remove Selected \nObject", parent = controlLayout, command=( lambda tree: self.tree_remove(self.jointTree, dictionary=self.jointDict) ) )
+        self.jntHierBtn = mc.button(label="Select Joint \nHierarchy", parent = controlLayout, command=self.select_hierarchy)
+        self.addJntBtn = mc.button(label="Add Joint", parent = controlLayout, command=( lambda tree: self.tree_add(self.jointTree, dictionary=self.jointDict) ) )
+        self.rmvJntBtn = mc.button(label="Remove Joint", parent = controlLayout, command=( lambda tree: self.tree_remove(self.jointTree, dictionary=self.jointDict) ) )
 
         mc.separator(parent=controlLayout, horizontal=False, height=1)
 
-        #Create a small layout for the axis toggle buttons.
-        axisBtnColumn = mc.columnLayout(parent=controlLayout, adjustableColumn=True, columnAlign="center")
-        mc.text("Axis Toggles", align="center")
-        axisBtnLayout = mc.rowLayout(parent=axisBtnColumn, numberOfColumns=3, adjustableColumn=3, columnAlign=(1, "center"))
-        xCheckBox = mc.checkBox(label="X",  parent=axisBtnLayout, value=True, changeCommand=lambda x: self.toggle_all_btns(self.jointTree, xCheckBox, 1, self.jointDict))
-        yCheckBox = mc.checkBox(label="Y",  parent=axisBtnLayout, value=True, changeCommand=lambda x: self.toggle_all_btns(self.jointTree, yCheckBox, 2, self.jointDict))
-        zCheckBox = mc.checkBox(label="Z",  parent=axisBtnLayout, value=True, changeCommand=lambda x: self.toggle_all_btns(self.jointTree, zCheckBox, 3, self.jointDict))
-        self.BtnStatus = [1, 1, 1]
-
-
-        #Create a small layout for the frame input.
         frmLayout = mc.columnLayout(parent=controlLayout, adjustableColumn=True)
         mc.text("Anim Cycle Length")
         self.framesInput = mc.textField(parent=frmLayout, text="5")
@@ -69,7 +58,7 @@ class WeightTester():
 
         self.timeRangeEdit = mc.checkBox(label="Adjust \nFrame Range", parent=controlLayout, value=True)
 
-        mc.separator(parent=controlLayout, horizontal=False, height=20)
+        mc.separator(parent=controlLayout, horizontal=False, height=50)
 
         self.clrAnimBtn = mc.button(label="Clear All \nAnimation", parent=controlLayout,
                                     command=lambda x: self.clear_anim(self.jointDict)
@@ -97,8 +86,10 @@ class WeightTester():
         #################
         ###   DEBUG   ###
         #################
-        #self.debugBtn = mc.button(label="DEBUG", parent=controlLayout, command=lambda x: print(self.jointDict))
-        # debugLayout = mc.formLayout(mainLayout, e=True,
+        # self.debugBtn = mc.button(label="DEBUG", parent=controlLayout,
+        #                         command=lambda x: self.dictOrder(self.jointTree, self.jointDict)
+        #                         )
+        # mc.formLayout(mainLayout, e=True,
         #               attachForm=[(self.debugBtn, "bottom", 20),
         #                           (self.debugBtn, "right", 20),
         #                           (self.debugBtn, "left", 20),],
@@ -116,31 +107,6 @@ class WeightTester():
 ##############################
 ###   TREEVIEW FUNCTIONS   ###
 ##############################
-    def toggle_all_btns(self, tree, chkBx, btnNum, dictionary=False):
-        """
-        Turns all buttons of the given position on or off and toggles the corresponding dictionary values.
-        """
-        #Gets the value of the given checkbox.
-        value = mc.checkBox(chkBx, q=True, value=True)
-        #Uses the given number to decide which axis the button will affect
-        if btnNum == 1:
-            axis = "x"
-        if btnNum == 2:
-            axis = "y"
-        if btnNum == 3:
-            axis = "z"
-        #List all items int eh treeView.
-        allItems = mc.treeView(tree, q=True, children=True)
-        if allItems:
-            #Set the button and dictionary values for each item based on the checkbox's value.
-            for item in allItems:
-                if value:
-                    #print(f"{item=} {axis=}")
-                    self.tree_btn_set(tree, item, btnNum=btnNum, btnText=axis, btnStyle="2StateButton", btnState="buttonUp", command=lambda item, y: self.dict_axis_toggle(item, axis))
-                    dictionary[item][axis] = 1
-                else:
-                    self.tree_btn_set(tree, item, btnNum=btnNum, btnText=axis, btnStyle="2StateButton", btnState="buttonDown", command=lambda item, y: self.dict_axis_toggle(item, axis))
-                    dictionary[item][axis] = 0
 
     def tree_exist_check(self, tree, obj) -> bool:
         """
@@ -158,20 +124,16 @@ class WeightTester():
     
     def parent_check(self, tree, obj) -> str:
         """
-        Checks if the given object has any parents in the scene. If it does, it checks if the parent object is in the treeView as well.
+        Checks if the given object has a parent in the scene. 
+        If it does, it checks if the parent object is in the treeView as well.
         -> If it is, return the parent object. Otherwise return "".
         """
-        allParents = mc.listRelatives(obj, parent=True, fullPath=True)
-        #print(f"{obj}: {allParents=}")
-        if allParents:
-            parents = allParents[0].split("|")
-            parents.reverse()
-            #print(f"{parents=}")
-            for parent in parents:
-                parExists = mc.treeView(tree, q=True, itemExists=parent)
-                if parExists:
-                    #print(f"{obj}: {parent=}")
-                    return parent
+        objParent = mc.listRelatives(obj, parent=True)
+        if objParent:
+            objParent = objParent[0]
+            parExists = mc.treeView(tree, q=True, itemExists=objParent)
+            if parExists:
+                return objParent
         else:
             objParent = ""
             return objParent
@@ -179,11 +141,12 @@ class WeightTester():
     
     def child_check(self, tree, obj) -> list:
         """
-        Checks if the given object has children in the scene. If it does, it checks if the child objects are in the treeView as well.
+        Checks if the given object has children in the scene. 
+        If it does, it checks if the child objects are in the treeView as well.
         -> If they are, return a list of the children. Otherwise return an empty list.
         """
         #List the given object's immediate children in the scene
-        sceneChildren = mc.listRelatives(obj, allDescendents=True)
+        sceneChildren = mc.listRelatives(obj, children=True)
         #print(f"{sceneChildren=}")
         if sceneChildren and len(sceneChildren) > 0:
             #Create a list of items in the TreeView that match children of the object.
@@ -263,14 +226,13 @@ class WeightTester():
 
     def tree_add(self, tree, dictionary=False):
         """
-        Lists the objects selected in the Maya scene and runs them through a series of checks before adding them to the treeView.
+        Gets the objects selected in the Maya scene in a list and runs them through a series of checks before adding it to the treeView.
         Adds the object to the jointDict.
         Checks if each object has parents and/or children that are already in the tree and adjusts its hierarchies to match.
         """
         #List all selected objects
         objs = mc.ls(sl=True)
         for obj in objs:
-            self.attr_check(obj, ["rotateX", "rotateY", "rotateZ"])
             #Check if each object exists in the treeView and add it if it doesn't.
             if not self.tree_exist_check(tree, obj): #-> bool
                 if not dictionary == False:
@@ -282,41 +244,12 @@ class WeightTester():
                 self.tree_btn_set(tree, obj, btnNum=2, btnText="y", btnStyle="2StateButton", command=lambda obj, axis: self.dict_axis_toggle(obj, "y"))
                 self.tree_btn_set(tree, obj, btnNum=3, btnText="z", btnStyle="2StateButton", command=lambda obj, axis: self.dict_axis_toggle(obj, "z"))
                 #Check if the object in the scene has any children and if those children are also items in the treeView.
-                children = self.child_check(tree, obj) #-> list of children
+                child = self.child_check(tree, obj) #-> list of children
                 #If they are, Move them under the new item.
-                if children and len(children) > 0:
-                    for c in children:
-                        cParent = self.parent_check(tree, c)
-                        self.tree_move(tree, c, cParent, self.jointDict)
-    
+                if child and len(child) > 0:
+                    for c in child:
+                        self.tree_move(tree, c, obj, self.jointDict)
 
-    def attr_check(self, obj, attrs=[]):
-        """
-        Checks a given object's given attributes if they're locked or connected to something else. 
-        """
-        #Set some variables that will be checked at the the end.
-        lockCheck = False
-        consCheck = False
-        for attr in attrs:
-            #Attach the object to the attribute.
-            fullAttr = f"{obj}.{attr}"
-            #Check if the attribute is locked.
-            if mc.getAttr(fullAttr, lock=True):
-                lockCheck = True
-            #Check if the attribute is attached to a constraint.
-            constraintCheck = mc.listConnections(fullAttr, skipConversionNodes=True)
-            #print(f"{fullAttr=}:{constraintCheck=}")
-            if constraintCheck:
-                for connection in constraintCheck:
-                    #print(connection)
-                    if "Constraint" in connection:
-                        consCheck = True
-        #Print a warning if any of the object's attributes are locked or constrained.
-        if lockCheck:
-            print(f"{obj} has locked attributes! Proceed with caution.")
-        if consCheck:
-            print(f"{obj} has constrained attributes! Proceed with caution.")
-            
 
     def tree_btn_set(self, tree, item, 
                   btnNum=1, 
@@ -329,6 +262,17 @@ class WeightTester():
         Sets a treeView item's button parameters.
         """
         mc.treeView(tree, e=True, buttonStyle=(item, btnNum, btnStyle), buttonTextIcon=(item, btnNum, btnText), buttonState=(item, btnNum, btnState), pressCommand=(btnNum, command) ) 
+    
+
+    # def getTreeData(self, tree, dictionary=False):
+    #     """
+    #     Reads the given treeView and returns a dictionary of items and their pushed buttons.
+    #     """
+    #     allItems = mc.treeView(tree, q=True, children=True)
+
+    #     for item in allItems:
+    #         data = dictionary[item].items()
+    #         print(data)
 
     
     def tree_child_check(self, tree, obj) -> list: 
@@ -347,64 +291,23 @@ class WeightTester():
         """
         #List all items selected in the treeView.
         rmvItems = mc.treeView(tree, q=True, selectItem=True)
-        strayChildren = []
         for ri in rmvItems:
             #Check for children under the selected items.
             leafChildren = self.tree_child_check(tree, ri) #->children under each item in rmvItems []
             if len(leafChildren) > 0:
-                #Move any children to the root so they're not deleted with their parent.
-                #print(f"{leafChildren=}")
+                #Add any children found to rmvItems.
                 for lc in leafChildren:
-                    godParent = mc.treeView(tree, q=True, itemParent=ri)
-                    while godParent in rmvItems:
-                        godParent = mc.treeView(tree, q=True, itemParent=godParent)
-                    self.tree_move(tree, lc, godParent, dictionary)
-                    strayChildren.append(lc)
+                    if lc not in rmvItems:
+                        rmvItems.append(lc)
+        #Remove all items in rmvItems from the treeView.
         while len(rmvItems) > 0:
             for ri in rmvItems:
                 if dictionary:
-                    #Remove the item from the given dictionary as well.
+                    #Remove item from the given dictionary as well.
                     dictionary.pop(ri)
                 if mc.treeView(tree, q=True, itemExists=ri):
-                    #Remove the item from the treeView.
                     mc.treeView(tree, e=True, removeItem=(ri) )
-                #Remove the item from the list of items to remove.
-                rmvItems.remove(ri)
-                #Remove the item from the list of children if it's in there.
-                if ri in strayChildren:
-                    strayChildren.remove(ri)
-        #print(f"final {strayChildren=}")
-        for sc in strayChildren:
-            parent = self.parent_check(tree, sc)
-            #print(f"{sc=},{parent=}")
-            self.tree_move(tree, sc, parent, dictionary)
-
-
-
-    # def tree_remove(self, tree, dictionary=False):
-    #     """
-    #     Checks if the selected item has any children and
-    #     Removes the selected items AND all of their children in the treeView from the treeView and from the jointDict.
-    #     """
-    #     #List all items selected in the treeView.
-    #     rmvItems = mc.treeView(tree, q=True, selectItem=True)
-    #     for ri in rmvItems:
-    #         #Check for children under the selected items.
-    #         leafChildren = self.tree_child_check(tree, ri) #->children under each item in rmvItems []
-    #         if len(leafChildren) > 0:
-    #             #Add any children found to rmvItems.
-    #             for lc in leafChildren:
-    #                 if lc not in rmvItems:
-    #                     rmvItems.append(lc)
-    #     #Remove all items in rmvItems from the treeView.
-    #     while len(rmvItems) > 0:
-    #         for ri in rmvItems:
-    #             if dictionary:
-    #                 #Remove item from the given dictionary as well.
-    #                 dictionary.pop(ri)
-    #             if mc.treeView(tree, q=True, itemExists=ri):
-    #                 mc.treeView(tree, e=True, removeItem=(ri) )
-    #             rmvItems.remove(ri)   
+                rmvItems.remove(ri)   
 
     
     def tree_empty(self, tree, dictionary=False):
@@ -448,15 +351,9 @@ class WeightTester():
         """
         Uses a confirmation dialog to double check if you want to empty the treeView and jointDict.
         """
-        animCheck = self.check_anim(dictionary)
-        if animCheck == "Confirm":
+        check = self.check_dialog(message="Are you sure you want to clear the entire treeView?")
+        if check == "Confirm":
             self.tree_empty(tree, dictionary)
-        elif animCheck == "Cancel":
-            return
-        else:
-            check = self.check_dialog(message="Are you sure you want to clear the entire treeView?")
-            if check == "Confirm":
-                self.tree_empty(tree, dictionary)
     
 
     def Tree_to_scene_select(self, tree):
@@ -469,7 +366,7 @@ class WeightTester():
 
     def dict_order(self, tree, dictionary):
         """
-        Reorders a dictionary to match the treeView.
+        Reorders a dictionary to match the teeView.
         """
         #print(f"{dictionary=}")
         treeOrder = mc.treeView(tree, q=True, children=True)
@@ -484,28 +381,21 @@ class WeightTester():
 ###   TOOL FUNCTIONS   ###
 ##########################
 
-    def select_joint_hierarchy(self, *args):
+    def select_hierarchy(self, *args):
         """
         Takes the first selected joint and selects all of its child joints.
         """
         try:
             #List the first object selected.
-            objs = mc.ls(sl=True)
-            allObjs = []
-            for obj in objs:
-                #List any children that are joints.
-                children = mc.listRelatives(obj, allDescendents=True, type="joint")
-                children.reverse()
-                #Add the selected object to the head of the list.
-                children.insert(0, obj)
-                #print(f"{children=}")
-                for child in children:
-                    allObjs.append(child)
+            obj = mc.ls(sl=True)[0]
+            #List any children that are joints.
+            children = mc.listRelatives(obj, allDescendents=True, type="joint")
+            children.reverse()
+            children.insert(0, obj)
             #Select the object and its children.
-            mc.select(allObjs, replace=True)
+            mc.select(children, replace=True)
         except ValueError: 
             print("ValueError: Duplicate objects in hierarchy or no child joints to select!")
-
 
   
     def dict_add(self, item):
@@ -529,7 +419,6 @@ class WeightTester():
         """
         Toggle an axis/value in the dictionary.
         """
-        #print(f"{item=} {axis=}")
         axisData = self.jointDict[item].get(axis)
         self.jointDict[item].update({axis: self.bool_toggle(axisData)})
         #print(f"{item} {axis} updated to {self.boolToggle(axisData)}")
@@ -574,13 +463,11 @@ class WeightTester():
         self.minFrameRange = mc.playbackOptions(q=True, minTime=True)
         self.maxFrameRange = mc.playbackOptions(q=True, maxTime=True)
         #If the 
-        getTrEdit = mc.checkBox(self.timeRangeEdit, q=True, value=True)
-        if getTrEdit:
+        getTREdit = mc.checkBox(self.timeRangeEdit, q=True, value=True)
+        if getTREdit:
             #print(self.minFrameRange, self.maxFrameRange)
             mc.playbackOptions(e=True, minTime=1, maxTime=lastFrame)
-    
 
-    
 
     def clear_anim(self, data):
         """
@@ -588,7 +475,7 @@ class WeightTester():
         """
         #Set current time to 1 to reset the skeleton pose.
         mc.currentTime(1, update=True)
-        #Select all of the objects in the treeView and delete their animation.
+        #Select all of the objects in the treeView and delete tehir animation.
         for obj in data.keys():
             mc.select(obj, add=True)
         mc.cutKey()
@@ -596,26 +483,6 @@ class WeightTester():
         getTREdit = mc.checkBox(self.timeRangeEdit, q=True, value=True)
         if getTREdit:
             mc.playbackOptions(e=True, animationStartTime=self.minFrameRange, animationEndTime=self.maxFrameRange)
-            
-    
-
-    def check_anim(self, data):
-        """
-        Checks if the objects in the given dictionary have any animation on them and brings up a warning if they do.
-        """
-        keyedObj = []
-        #Check each object for keyframes.
-        for obj in data.keys():
-            if mc.keyframe(obj, q=True, keyframeCount=True) > 0:
-                keyedObj.append(obj)
-        if len(keyedObj) > 0:
-            confirm = self.check_dialog(message=f"{keyedObj} have keyframes. Are you sure you want to continue?")
-            if confirm == "Confirm":
-                return confirm
-            else:
-                return "Cancel"
-        else:
-            return "Clear"
 
     
 
