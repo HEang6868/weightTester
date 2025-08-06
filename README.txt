@@ -1,12 +1,11 @@
 This Maya tool is meant help with testing deformation on rigged meshes. It lists skeleton joints and animates them to rotate 180 degrees on their chosen axes.
 
-INSTALLATION
+INSTALLATION:
+- Save the folder this file is in to your maya/scripts directory.
+- Drag and drop weightTester_INSTALL.py into your Maya viewport.
+- A button should be created in your "custom" shelf.
 
-To install it, simply place this folder into your maya/scripts directory. 
-Then open weightTester.py in Maya's script editor and press ctrl + a to highlight everything in the editor. 
-Then middle-click and drag from the editor, up to whichever Maya shelf you want to hold this tool, and release it there.
-You can right click the button that is created to edit its name and label.
-Clicking the new button should open the tool.
+Press the button to open the tool.
 
 USING THE TOOL
 
