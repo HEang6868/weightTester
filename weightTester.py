@@ -1,4 +1,5 @@
 import maya.cmds as mc
+import weightTester.nodeMod as nodes
 
 
 """
@@ -93,6 +94,23 @@ class WeightTester():
                                 ],
                     attachControl=[ (treeLayout, "right", 10, controlLayout)]
                                         )
+        
+        #Check for, then read/create, the dictionary node.
+        self.jointDict = nodes.node_check_create("WeightTesterNode", "WeightTestDict")
+        if len(self.jointDict) > 0:
+            #Clear the selection then select all objects listed in the dictionary node.
+            mc.select(clear=True)
+            for obj in self.jointDict.keys():
+                if mc.objExists(obj):
+                    mc.select(obj, add=True)
+                else:
+                    print(f"{obj} not found. Skipping.")
+            #Add the selected objects to the treeView and sets their buttons.
+            self.tree_add(self.jointTree)
+            for item in mc.treeView(self.jointTree, q=True, children=True):
+                self.btns_rebuild(self.jointTree, item, self.jointDict)
+            mc.select(clear=True)
+
 
         #################
         ###   DEBUG   ###
@@ -104,8 +122,6 @@ class WeightTester():
         #                           (self.debugBtn, "left", 20),],
         #                 attachControl=[(self.debugBtn, "top", 20, treeLayout)]
         #               )
-
-
 
         #Open the window and reset its size.
         mc.showWindow()
@@ -141,6 +157,9 @@ class WeightTester():
                 else:
                     self.tree_btn_set(tree, item, btnNum=btnNum, btnText=axis, btnStyle="2StateButton", btnState="buttonDown", command=lambda item, y: self.dict_axis_toggle(item, axis))
                     dictionary[item][axis] = 0
+        #Update the data node.
+        nodes.overwrite_node("WeightTesterNode.WeightTestDict", self.jointDict)
+
 
     def tree_exist_check(self, tree, obj) -> bool:
         """
@@ -288,6 +307,8 @@ class WeightTester():
                     for c in children:
                         cParent = self.parent_check(tree, c)
                         self.tree_move(tree, c, cParent, self.jointDict)
+        #Update the data node.
+        nodes.overwrite_node("WeightTesterNode.WeightTestDict", self.jointDict)
     
 
     def attr_check(self, obj, attrs=[]):
@@ -328,7 +349,11 @@ class WeightTester():
         """
         Sets a treeView item's button parameters.
         """
-        mc.treeView(tree, e=True, buttonStyle=(item, btnNum, btnStyle), buttonTextIcon=(item, btnNum, btnText), buttonState=(item, btnNum, btnState), pressCommand=(btnNum, command) ) 
+        mc.treeView(tree, e=True, buttonStyle=(item, btnNum, btnStyle), 
+                    buttonTextIcon=(item, btnNum, btnText), 
+                    buttonState=(item, btnNum, btnState), 
+                    pressCommand=(btnNum, command) 
+                    ) 
 
     
     def tree_child_check(self, tree, obj) -> list: 
@@ -378,33 +403,8 @@ class WeightTester():
             parent = self.parent_check(tree, sc)
             #print(f"{sc=},{parent=}")
             self.tree_move(tree, sc, parent, dictionary)
-
-
-
-    # def tree_remove(self, tree, dictionary=False):
-    #     """
-    #     Checks if the selected item has any children and
-    #     Removes the selected items AND all of their children in the treeView from the treeView and from the jointDict.
-    #     """
-    #     #List all items selected in the treeView.
-    #     rmvItems = mc.treeView(tree, q=True, selectItem=True)
-    #     for ri in rmvItems:
-    #         #Check for children under the selected items.
-    #         leafChildren = self.tree_child_check(tree, ri) #->children under each item in rmvItems []
-    #         if len(leafChildren) > 0:
-    #             #Add any children found to rmvItems.
-    #             for lc in leafChildren:
-    #                 if lc not in rmvItems:
-    #                     rmvItems.append(lc)
-    #     #Remove all items in rmvItems from the treeView.
-    #     while len(rmvItems) > 0:
-    #         for ri in rmvItems:
-    #             if dictionary:
-    #                 #Remove item from the given dictionary as well.
-    #                 dictionary.pop(ri)
-    #             if mc.treeView(tree, q=True, itemExists=ri):
-    #                 mc.treeView(tree, e=True, removeItem=(ri) )
-    #             rmvItems.remove(ri)   
+        #Update the data node.
+        nodes.overwrite_node("WeightTesterNode.WeightTestDict", self.jointDict)
 
     
     def tree_empty(self, tree, dictionary=False):
@@ -426,6 +426,8 @@ class WeightTester():
             #Just to be safe, empties the dictionary as well.
             if dictionary:
                 dictionary.clear()
+                #Update the data node.
+                nodes.overwrite_node("WeightTesterNode.WeightTestDict", self.jointDict)
 
 
     def check_dialog(self, message):
@@ -524,6 +526,7 @@ class WeightTester():
         else:
             return 1
         
+        
 
     def dict_axis_toggle(self, item, axis):
         """
@@ -533,6 +536,8 @@ class WeightTester():
         axisData = self.jointDict[item].get(axis)
         self.jointDict[item].update({axis: self.bool_toggle(axisData)})
         #print(f"{item} {axis} updated to {self.boolToggle(axisData)}")
+        #Update the data node.
+        nodes.overwrite_node("WeightTesterNode.WeightTestDict", self.jointDict)
     
 
     def weight_test_anim(self, obj, axis, frame, len):
@@ -580,8 +585,6 @@ class WeightTester():
             mc.playbackOptions(e=True, minTime=1, maxTime=lastFrame)
     
 
-    
-
     def clear_anim(self, data):
         """
         Deletes all keyframes from the joints in the treeView
@@ -618,7 +621,6 @@ class WeightTester():
             return "Clear"
 
     
-
 
 
 #Create an instance of the tool and launch it.
