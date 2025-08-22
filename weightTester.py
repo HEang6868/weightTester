@@ -46,7 +46,7 @@ class WeightTester():
                                        generalSpacing=15,
                                        margins=5,
                                        )
-        self.jntHierBtn = mc.button(label="Select Joint \nHierarchy", parent = controlLayout, command=self.select_joint_hierarchy)
+        self.jntHierBtn = mc.button(label="Select Object \nHierarchy", parent = controlLayout, command=self.select_object_hierarchy)
         self.addJntBtn = mc.button(label="Add Selected \nObjects", parent = controlLayout, command=( lambda tree: self.tree_add(self.jointTree, dictionary=self.jointDict) ) )
         self.rmvJntBtn = mc.button(label="Remove Selected \nObject", parent = controlLayout, command=( lambda tree: self.tree_remove(self.jointTree, dictionary=self.jointDict) ) )
 
@@ -449,6 +449,7 @@ class WeightTester():
     def check_tree_empty(self, tree, dictionary=False):
         """
         Uses a confirmation dialog to double check if you want to empty the treeView and jointDict.
+        Then opens a confirmation dialog to check if you want to delete the weightTester node.
         """
         animCheck = self.check_anim(dictionary)
         if animCheck == "Confirm":
@@ -459,6 +460,11 @@ class WeightTester():
             check = self.check_dialog(message="Are you sure you want to clear the entire treeView?")
             if check == "Confirm":
                 self.tree_empty(tree, dictionary)
+        
+        if mc.objExists("WeightTesterNode"):
+            nodeCheck = self.check_dialog(message="Do you want to delete the \nWeightTesterNode as well?")
+            if nodeCheck == "Confirm":
+                mc.delete("WeightTesterNode")
     
 
     def Tree_to_scene_select(self, tree):
@@ -486,23 +492,43 @@ class WeightTester():
 ###   TOOL FUNCTIONS   ###
 ##########################
 
-    def select_joint_hierarchy(self, *args):
+    def select_object_hierarchy(self, *args):
         """
-        Takes the first selected joint and selects all of its child joints.
+        Takes the first selected object and selects all of its children that share its object type.
         """
         try:
             #List the first object selected.
             objs = mc.ls(sl=True)
             allObjs = []
             for obj in objs:
-                #List any children that are joints.
-                children = mc.listRelatives(obj, allDescendents=True, type="joint")
-                children.reverse()
-                #Add the selected object to the head of the list.
-                children.insert(0, obj)
-                #print(f"{children=}")
-                for child in children:
-                    allObjs.append(child)
+                #Get teh object's type.
+                objType = mc.objectType(obj)
+                #print(objType)
+                #If the object is a joint, return all of its child joints.
+                if objType == "joint":
+                    children = mc.listRelatives(obj, allDescendents=True, noIntermediate=True, type="joint")
+                #Otherwise return all children of the same object type that have a shape.
+                else:
+                    children=[]
+                    #print(objType)
+                    allChildren = mc.listRelatives(obj, allDescendents=True, noIntermediate=True, type=objType)
+                    #print(f"{allChildren=}")
+                    if allChildren:
+                        for child in allChildren:
+                            childShape = mc.listRelatives(child, shapes=True)
+                            #print(f"{child=}, {childShape=}")
+                            if childShape:
+                                children.append(child)
+                if children == None:
+                    return print("Object has no children.")
+                else:
+                    #Reverse the list of children and place the selected object at the top of the list.
+                    children.reverse()
+                    children.insert(0, obj)
+                    #print(f"{children=}")
+                    #Add the objects to a list.
+                    for child in children:
+                        allObjs.append(child)
             #Select the object and its children.
             mc.select(allObjs, replace=True)
         except ValueError: 
